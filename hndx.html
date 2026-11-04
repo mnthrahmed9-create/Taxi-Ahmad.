@@ -1,0 +1,224 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>MONSTER CHESS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#101326;color:white;
+ font-family:Arial,sans-serif;text-align:center;
+}
+header{
+ padding:20px;background:#191d38;
+ border-bottom:2px solid #a77cff;
+}
+h1{color:#c39aff;margin:5px;font-size:27px}
+.sub{color:#aaa;font-size:13px}
+.screen{padding:18px;max-width:500px;margin:auto}
+.card{
+ background:#202541;border:1px solid #424b70;
+ border-radius:18px;padding:17px;margin:12px 0;
+}
+button{
+ border:0;border-radius:12px;padding:14px;
+ background:#9562ed;color:white;
+ font-size:16px;font-weight:bold;
+ width:100%;margin:5px 0;
+}
+button:active{transform:scale(.97)}
+.secondary{background:#343b5b}
+input{
+ width:100%;padding:14px;border-radius:10px;
+ border:1px solid #555;background:#11172b;
+ color:white;font-size:17px;text-align:center;
+}
+#board{
+ display:grid;grid-template-columns:repeat(8,1fr);
+ width:min(94vw,420px);margin:15px auto;
+ border:5px solid #303653;border-radius:8px;
+ overflow:hidden;
+}
+.square{
+ aspect-ratio:1;display:flex;align-items:center;
+ justify-content:center;font-size:clamp(24px,8vw,42px);
+ cursor:pointer;position:relative;
+}
+.light{background:#e4d3b9}
+.dark{background:#718b80}
+.selected{background:#e6c84c!important}
+.target:after{
+ content:"";position:absolute;width:25%;height:25%;
+ border-radius:50%;background:#245d39;
+}
+.monster{filter:drop-shadow(1px 2px 1px #333)}
+.info{color:#e4caff;font-size:14px;margin:10px}
+.hidden{display:none}
+.small{font-size:12px;color:#aaa}
+</style>
+</head>
+<body>
+
+<header>
+<h1>👹 MONSTER CHESS</h1>
+<div class="sub">وحوشك... استراتيجيتك... انتصارك!</div>
+</header>
+
+<div class="screen" id="home">
+ <div class="card">
+  <div style="font-size:65px">🐉 👹 🐺</div>
+  <h2>مرحباً بك في عالم الوحوش</h2>
+  <p>استعد لخوض معركة الشطرنج!</p>
+ </div>
+ <button onclick="showGame()">🎮 مباراة تجريبية</button>
+ <button onclick="createRoom()">🌍 إنشاء غرفة أونلاين</button>
+ <button class="secondary" onclick="joinRoom()">🔑 الانضمام إلى غرفة</button>
+ <div class="card">
+  <h3>🏆 التصنيف العالمي</h3>
+  <p>سيظهر ترتيب اللاعبين بعد تفعيل الخادم.</p>
+ </div>
+</div>
+
+<div class="screen hidden" id="game">
+ <h2>⚔️ ساحة المعركة</h2>
+ <div class="card">
+  <div>🐉 فريق الوحوش الملكي</div>
+  <div class="info" id="status">الأبيض يبدأ اللعب</div>
+  <div id="board"></div>
+  <div class="info" id="turn">دور الأبيض</div>
+ </div>
+ <button class="secondary" onclick="restart()">🔄 إعادة المباراة</button>
+ <button onclick="backHome()">🏠 الرئيسية</button>
+</div>
+
+<div class="screen hidden" id="room">
+ <div class="card">
+  <h2>🌍 غرفة المباراة</h2>
+  <p>رمز الغرفة التجريبي:</p>
+  <h1 id="roomCode">----</h1>
+  <p class="small">الغرفة حالياً تجريبية وليست متصلة بلاعبين حقيقيين.</p>
+  <button onclick="copyRoom()">نسخ الرمز</button>
+  <button class="secondary" onclick="backHome()">رجوع</button>
+ </div>
+</div>
+
+<script>
+const monster={
+ w:{k:"🐉",q:"👑",r:"🗿",b:"🧙",n:"🐺",p:"👾"},
+ b:{k:"🐲",q:"🧛",r:"🪨",b:"🦉",n:"🐗",p:"👹"}
+};
+
+let chess;
+let selected=null;
+let possible=[];
+
+function show(id){
+ ["home","game","room"].forEach(x=>
+ document.getElementById(x).classList.add("hidden"));
+ document.getElementById(id).classList.remove("hidden");
+}
+
+function showGame(){
+ if(!window.Chess){
+  alert("تعذر تحميل محرك الشطرنج. تحقق من الإنترنت.");
+  return;
+ }
+ chess=new Chess();
+ selected=null;
+ possible=[];
+ show("game");
+ draw();
+}
+
+function draw(){
+ const board=document.getElementById("board");
+ board.innerHTML="";
+ const matrix=chess.board();
+
+ matrix.forEach((row,r)=>{
+  row.forEach((piece,c)=>{
+   const sq=document.createElement("div");
+   const file="abcdefgh"[c];
+   const rank=8-r;
+   const name=file+rank;
+   sq.className="square "+((r+c)%2?"dark":"light");
+
+   if(selected===name)sq.classList.add("selected");
+   if(possible.includes(name))sq.classList.add("target");
+
+   if(piece){
+    const color=piece.color==="w"?"w":"b";
+    sq.innerHTML='<span class="monster">'+monster[color][piece.type]+'</span>';
+   }
+
+   sq.onclick=()=>clickSquare(name);
+   board.appendChild(sq);
+  });
+ });
+
+ document.getElementById("turn").textContent=
+ chess.turn()==="w"?"دور الأبيض ⚪":"دور الأسود ⚫";
+
+ let message="المباراة مستمرة";
+ if(chess.in_checkmate())message="🏆 كش مات! انتهت المباراة";
+ else if(chess.in_draw())message="تعادل!";
+ else if(chess.in_check())message="⚠️ الملك في كش!";
+
+ document.getElementById("status").textContent=message;
+}
+
+function clickSquare(square){
+ if(chess.game_over())return;
+
+ if(selected){
+  let move=chess.move({from:selected,to:square,promotion:"q"});
+  if(move){
+   selected=null;
+   possible=[];
+   draw();
+   return;
+  }
+ }
+
+ const piece=chess.get(square);
+ if(piece&&piece.color===chess.turn()){
+  selected=square;
+  possible=chess.moves({square,verbose:true}).map(m=>m.to);
+ }else{
+  selected=null;
+  possible=[];
+ }
+ draw();
+}
+
+function restart(){
+ chess.reset();
+ selected=null;
+ possible=[];
+ draw();
+}
+
+function backHome(){show("home")}
+
+function createRoom(){
+ const code="MON"+Math.floor(1000+Math.random()*9000);
+ document.getElementById("roomCode").textContent=code;
+ show("room");
+}
+
+function joinRoom(){
+ const code=prompt("أدخل رمز الغرفة:");
+ if(code)alert("هذه خاصية تجريبية. سيتم تفعيل الانضمام بعد ربط الخادم.");
+}
+
+function copyRoom(){
+ const code=document.getElementById("roomCode").textContent;
+ if(navigator.clipboard)
+ navigator.clipboard.writeText(code).then(()=>alert("تم نسخ الرمز"));
+}
+</script>
+</body>
+</html>
